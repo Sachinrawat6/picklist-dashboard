@@ -25,71 +25,461 @@ const formatDateTime = (dateStr) => {
   });
 };
 
-const Stats = ({ records = [], namesMap = {} }) => {
-  const [openPicklist, setOpenPicklist] = useState(null);
+// const Stats = ({ records = [], namesMap = {} }) => {
+//   const [expandedEmployee, setExpandedEmployee] = useState(null);
 
-  const picklistStats = useMemo(() => {
-    const groups = {};
+//   const employeeStats = useMemo(() => {
+//     const employeeGroups = {};
+
+//     records.forEach((r) => {
+//       const empKey = r.employee_id ?? 'unknown';
+//       const channelKey = r.channel ?? 'unknown';
+
+//       if (!employeeGroups[empKey]) {
+//         employeeGroups[empKey] = {
+//           employee_id: r.employee_id,
+//           channels: {}, // channelKey -> items[]
+//           createdAt: r.createdAt,
+//           picklistIds: new Set(),
+//         };
+//       }
+
+//       const empGroup = employeeGroups[empKey];
+//       empGroup.picklistIds.add(r.picklist_id);
+
+//       if (
+//         r.createdAt &&
+//         (!empGroup.createdAt || new Date(r.createdAt) < new Date(empGroup.createdAt))
+//       ) {
+//         empGroup.createdAt = r.createdAt;
+//       }
+
+//       if (!empGroup.channels[channelKey]) {
+//         empGroup.channels[channelKey] = {
+//           channel: r.channel,
+//           items: [],
+//         };
+//       }
+//       empGroup.channels[channelKey].items.push(r);
+//     });
+
+//     return Object.values(employeeGroups)
+//       .map((empGroup) => {
+//         const channelStats = Object.values(empGroup.channels)
+//           .map((chGroup) => {
+//             const expectedItems = chGroup.items.filter((r) => !isInvalidRackSpace(r.rackSpace));
+//             const foundItems = expectedItems.filter((r) => r.status?.toLowerCase() === 'found');
+//             const missingItems = expectedItems.filter((r) => r.status?.toLowerCase() !== 'found');
+
+//             const expected = expectedItems.length;
+//             const found = foundItems.length;
+//             const efficiency = expected > 0 ? Math.round((found / expected) * 100) : 0;
+
+//             return {
+//               channel: chGroup.channel,
+//               expected,
+//               found,
+//               missing: missingItems.length,
+//               efficiency,
+//               foundItems,
+//               missingItems,
+//             };
+//           })
+//           .sort((a, b) => String(a.channel ?? '').localeCompare(String(b.channel ?? '')));
+
+//         const totalExpected = channelStats.reduce((sum, c) => sum + c.expected, 0);
+//         const totalFound = channelStats.reduce((sum, c) => sum + c.found, 0);
+//         const totalMissing = channelStats.reduce((sum, c) => sum + c.missing, 0);
+//         const overallEfficiency =
+//           totalExpected > 0 ? Math.round((totalFound / totalExpected) * 100) : 0;
+
+//         return {
+//           employee_id: empGroup.employee_id,
+//           employee_name: namesMap[empGroup.employee_id] || '',
+//           createdAt: empGroup.createdAt,
+//           channelCount: channelStats.length,
+//           picklistCount: empGroup.picklistIds.size,
+//           totalExpected,
+//           totalFound,
+//           totalMissing,
+//           overallEfficiency,
+//           channels: channelStats,
+//         };
+//       })
+//       .sort((a, b) => {
+//         const idA = Number(a.employee_id);
+//         const idB = Number(b.employee_id);
+//         if (!isNaN(idA) && !isNaN(idB)) return idA - idB;
+//         return String(a.employee_id ?? '').localeCompare(String(b.employee_id ?? ''));
+//       });
+//   }, [records, namesMap]);
+
+//   /* ---------- PDF Export (single employee, all channels) ---------- */
+//   const exportEmployeePDF = (data) => {
+//     const doc = new jsPDF({
+//       orientation: 'portrait',
+//       unit: 'pt',
+//       format: 'a4',
+//     });
+//     const pageWidth = doc.internal.pageSize.getWidth();
+
+//     doc.setFontSize(16);
+//     doc.setFont('helvetica', 'bold');
+//     doc.text('Missing Pieces Report', pageWidth / 2, 40, { align: 'center' });
+
+//     doc.setFontSize(10);
+//     doc.setFont('helvetica', 'normal');
+//     const metaY = 70;
+
+//     const employeeLine = data.employee_name
+//       ? `Employee: ${data.employee_id ?? '—'} (${data.employee_name})`
+//       : `Employee ID: ${data.employee_id ?? '—'}`;
+
+//     doc.text(employeeLine, 40, metaY);
+//     doc.text(`Channels: ${data.channelCount}   Picklists: ${data.picklistCount}`, 40, metaY + 16);
+//     doc.text(`Earliest Picklist Time: ${formatDateTime(data.createdAt)}`, 40, metaY + 32);
+//     doc.text(
+//       `Expected: ${data.totalExpected}   Found: ${data.totalFound}   Missing: ${data.totalMissing}   Efficiency: ${data.overallEfficiency}%`,
+//       40,
+//       metaY + 48
+//     );
+
+//     // Flatten missing items across channels, with a Channel column
+//     const allMissing = data.channels.flatMap((ch) =>
+//       ch.missingItems.map((item) => ({ ...item, __channel: ch.channel }))
+//     );
+
+//     autoTable(doc, {
+//       startY: metaY + 68,
+//       head: [['#', 'Channel', 'Style Number', 'Size', 'Rack Space']],
+//       body: allMissing.map((item, idx) => [
+//         idx + 1,
+//         item.__channel ?? '—',
+//         item.style_number ?? '—',
+//         item.size ?? '—',
+//         item.rackSpace?.replace(/['"`]/g, '') ?? '—',
+//       ]),
+//       theme: 'grid',
+//       styles: { fontSize: 9, cellPadding: 6 },
+//       headStyles: {
+//         fillColor: [220, 38, 38],
+//         textColor: 255,
+//         fontStyle: 'bold',
+//       },
+//       alternateRowStyles: { fillColor: [254, 242, 242] },
+//       didDrawPage: () => {
+//         const total = doc.internal.pageSize.getNumberOfPages?.() || doc.internal.getNumberOfPages();
+//         doc.setFontSize(9);
+//         doc.text(
+//           `Page ${total}`,
+//           doc.internal.pageSize.getWidth() - 60,
+//           doc.internal.pageSize.getHeight() - 20
+//         );
+//       },
+//     });
+
+//     doc.save(`Missing_Employee_${data.employee_id}_${new Date().toISOString().slice(0, 10)}.pdf`);
+//   };
+
+//   if (!employeeStats.length) {
+//     return (
+//       <div className="w-full my-4 sm:my-6 p-6 sm:p-8 text-center text-slate-500 bg-white rounded-xl border border-slate-200">
+//         No records available.
+//       </div>
+//     );
+//   }
+
+//   return (
+//     <div className="w-full my-4 sm:my-6 bg-white rounded-xl">
+//       {/* Header */}
+//       <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-4">
+//         <div>
+//           <h2 className="text-lg sm:text-xl font-semibold text-slate-900 m-0">
+//             Employee Performance
+//           </h2>
+//           <p className="text-xs sm:text-sm text-slate-500 mt-1">
+//             {employeeStats.length} employee
+//             {employeeStats.length > 1 ? 's' : ''} · Grouped by <strong>employee_id</strong>
+//           </p>
+//         </div>
+//         <button
+//           onClick={() => exportEmployeePDF(employeeStats[0])}
+//           className="inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors w-full sm:w-auto"
+//         >
+//           <PdfIcon />
+//           Export Missing (PDF)
+//         </button>
+//       </div>
+
+//       {/* ---------- List: employee cards, expandable to channel breakdown ---------- */}
+//       <div>
+//         {employeeStats.map((emp) => {
+//           const isOpen = expandedEmployee === emp.employee_id;
+//           const effText =
+//             emp.overallEfficiency >= 80
+//               ? 'text-green-600'
+//               : emp.overallEfficiency >= 50
+//                 ? 'text-amber-600'
+//                 : 'text-red-600';
+//           const effBar =
+//             emp.overallEfficiency >= 80
+//               ? 'bg-green-500'
+//               : emp.overallEfficiency >= 50
+//                 ? 'bg-amber-500'
+//                 : 'bg-red-500';
+
+//           return (
+//             <div key={emp.employee_id} className="border-b  border-b-gray-200 overflow-hidden">
+//               {/* Employee summary row */}
+//               <button
+//                 type="button"
+//                 onClick={() => setExpandedEmployee(isOpen ? null : emp.employee_id)}
+//                 className="w-full flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 bg-white hover:bg-slate-50 transition-colors text-left"
+//               >
+//                 <div className="flex-1 min-w-0">
+//                   <div className="flex items-center gap-2 flex-wrap">
+//                     <span className="text-sm font-semibold text-slate-800">
+//                       #{emp.employee_id ?? '—'}
+//                     </span>
+//                     {emp.employee_name ? (
+//                       <span className="text-xs text-slate-500">{emp.employee_name}</span>
+//                     ) : (
+//                       <span className="text-xs text-slate-300">loading…</span>
+//                     )}
+//                     <span className="inline-block px-2 py-0.5 bg-slate-100 rounded text-xs font-semibold text-slate-700">
+//                       {emp.channelCount} channel{emp.channelCount > 1 ? 's' : ''}
+//                     </span>
+//                   </div>
+//                   <p className="text-xs text-slate-500 mt-1">
+//                     {formatDateTime(emp.createdAt)} · {emp.picklistCount} picklist
+//                     {emp.picklistCount > 1 ? 's' : ''}
+//                   </p>
+//                 </div>
+
+//                 <div className="flex items-center gap-4 sm:gap-6 text-sm">
+//                   <div className="text-center">
+//                     <div className="font-semibold text-blue-600">{emp.totalExpected}</div>
+//                     <div className="text-[10px] uppercase text-slate-400">Expected</div>
+//                   </div>
+//                   <div className="text-center">
+//                     <div className="font-semibold text-green-600">{emp.totalFound}</div>
+//                     <div className="text-[10px] uppercase text-slate-400">Found</div>
+//                   </div>
+//                   <div className="text-center">
+//                     <div className="font-semibold text-red-600">{emp.totalMissing}</div>
+//                     <div className="text-[10px] uppercase text-slate-400">Missing</div>
+//                   </div>
+//                   <div className="w-28">
+//                     <div className="flex items-center gap-2">
+//                       <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+//                         <div
+//                           className={`h-full rounded-full ${effBar}`}
+//                           style={{ width: `${emp.overallEfficiency}%` }}
+//                         />
+//                       </div>
+//                       <span className={`text-xs font-bold ${effText}`}>
+//                         {emp.overallEfficiency}%
+//                       </span>
+//                     </div>
+//                   </div>
+//                   <button
+//                     type="button"
+//                     onClick={(e) => {
+//                       e.stopPropagation();
+//                       exportEmployeePDF(emp);
+//                     }}
+//                     title="Export missing as PDF"
+//                     className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md transition-colors whitespace-nowrap"
+//                   >
+//                     <PdfIcon className="w-3.5 h-3.5" />
+//                     PDF
+//                   </button>
+//                   <span className="text-slate-400 text-xs">{isOpen ? '▲' : '▼'}</span>
+//                 </div>
+//               </button>
+
+//               {/* Channel breakdown */}
+//               {isOpen && (
+//                 <div className="border-t border-slate-200 bg-slate-50 overflow-x-auto">
+//                   <table className="w-full border-collapse text-sm">
+//                     <thead>
+//                       <tr>
+//                         <Th>Channel</Th>
+//                         <Th className="text-center">Expected</Th>
+//                         <Th className="text-center">Found</Th>
+//                         <Th className="text-center">Missing</Th>
+//                         <Th>Efficiency</Th>
+//                       </tr>
+//                     </thead>
+//                     <tbody>
+//                       {emp.channels.map((ch, idx) => {
+//                         const chEffText =
+//                           ch.efficiency >= 80
+//                             ? 'text-green-600'
+//                             : ch.efficiency >= 50
+//                               ? 'text-amber-600'
+//                               : 'text-red-600';
+//                         const chEffBar =
+//                           ch.efficiency >= 80
+//                             ? 'bg-green-500'
+//                             : ch.efficiency >= 50
+//                               ? 'bg-amber-500'
+//                               : 'bg-red-500';
+
+//                         return (
+//                           <tr
+//                             key={ch.channel ?? idx}
+//                             className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}
+//                           >
+//                             <Td className="whitespace-nowrap">
+//                               <span className="inline-block px-2 py-0.5 bg-slate-100 rounded text-xs font-semibold text-slate-700">
+//                                 {ch.channel || '—'}
+//                               </span>
+//                             </Td>
+//                             <Td className="text-center font-semibold text-blue-600">
+//                               {ch.expected}
+//                             </Td>
+//                             <Td className="text-center font-semibold text-green-600">{ch.found}</Td>
+//                             <Td className="text-center font-semibold text-red-600">{ch.missing}</Td>
+//                             <Td>
+//                               <div className="flex items-center gap-2 min-w-[110px]">
+//                                 <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+//                                   <div
+//                                     className={`h-full rounded-full ${chEffBar}`}
+//                                     style={{ width: `${ch.efficiency}%` }}
+//                                   />
+//                                 </div>
+//                                 <span className={`text-xs font-bold ${chEffText}`}>
+//                                   {ch.efficiency}%
+//                                 </span>
+//                               </div>
+//                             </Td>
+//                           </tr>
+//                         );
+//                       })}
+//                     </tbody>
+//                   </table>
+//                 </div>
+//               )}
+//             </div>
+//           );
+//         })}
+//       </div>
+//     </div>
+//   );
+// };
+
+const Stats = ({ records = [], namesMap = {} }) => {
+  const [expandedEmployee, setExpandedEmployee] = useState(null);
+
+  const employeeStats = useMemo(() => {
+    const employeeGroups = {};
 
     records.forEach((r) => {
-      const key = r.picklist_id ?? 'unknown';
-      if (!groups[key]) {
-        groups[key] = {
-          picklist_id: key,
+      const empKey = r.employee_id ?? 'unknown';
+      const channelKey = r.channel ?? 'unknown';
+
+      if (!employeeGroups[empKey]) {
+        employeeGroups[empKey] = {
           employee_id: r.employee_id,
-          channel: r.channel,
+          channels: {}, // channelKey -> items[]
           createdAt: r.createdAt,
+          picklistIds: new Set(),
+        };
+      }
+
+      const empGroup = employeeGroups[empKey];
+      empGroup.picklistIds.add(r.picklist_id);
+
+      if (
+        r.createdAt &&
+        (!empGroup.createdAt || new Date(r.createdAt) < new Date(empGroup.createdAt))
+      ) {
+        empGroup.createdAt = r.createdAt;
+      }
+
+      if (!empGroup.channels[channelKey]) {
+        empGroup.channels[channelKey] = {
+          channel: r.channel,
           items: [],
         };
       }
-      groups[key].items.push(r);
-      if (
-        r.createdAt &&
-        (!groups[key].createdAt || new Date(r.createdAt) < new Date(groups[key].createdAt))
-      ) {
-        groups[key].createdAt = r.createdAt;
-      }
+      empGroup.channels[channelKey].items.push(r);
     });
 
-    return Object.values(groups)
-      .map((group) => {
-        const expectedItems = group.items.filter((r) => !isInvalidRackSpace(r.rackSpace));
-        const foundItems = expectedItems.filter((r) => r.status?.toLowerCase() === 'found');
-        const missingItems = expectedItems.filter((r) => r.status?.toLowerCase() !== 'found');
+    return Object.values(employeeGroups)
+      .map((empGroup) => {
+        const channelStats = Object.values(empGroup.channels)
+          .map((chGroup) => {
+            const totalOrders = chGroup.items.length;
 
-        const expected = expectedItems.length;
-        const found = foundItems.length;
-        const efficiency = expected > 0 ? Math.round((found / expected) * 100) : 0;
+            const expectedItems = chGroup.items.filter((r) => !isInvalidRackSpace(r.rackSpace));
+            const otherItems = chGroup.items.filter((r) => isInvalidRackSpace(r.rackSpace));
+
+            const expectedFoundItems = expectedItems.filter(
+              (r) => r.status?.toLowerCase() === 'found'
+            );
+            const otherFoundItems = otherItems.filter((r) => r.status?.toLowerCase() === 'found');
+            const missingItems = expectedItems.filter((r) => r.status?.toLowerCase() !== 'found');
+
+            const expected = expectedItems.length;
+            const expectedFound = expectedFoundItems.length;
+            const otherFound = otherFoundItems.length;
+            const totalFound = expectedFound + otherFound;
+            const missing = missingItems.length;
+            const efficiency = expected > 0 ? Math.round((expectedFound / expected) * 100) : 0;
+
+            return {
+              channel: chGroup.channel,
+              totalOrders,
+              expected,
+              expectedFound,
+              otherFound,
+              totalFound,
+              missing,
+              efficiency,
+              expectedFoundItems,
+              otherFoundItems,
+              missingItems,
+            };
+          })
+          .sort((a, b) => String(a.channel ?? '').localeCompare(String(b.channel ?? '')));
+
+        const totalOrders = channelStats.reduce((sum, c) => sum + c.totalOrders, 0);
+        const totalExpected = channelStats.reduce((sum, c) => sum + c.expected, 0);
+        const totalExpectedFound = channelStats.reduce((sum, c) => sum + c.expectedFound, 0);
+        const totalOtherFound = channelStats.reduce((sum, c) => sum + c.otherFound, 0);
+        const totalFoundAll = totalExpectedFound + totalOtherFound;
+        const totalMissing = channelStats.reduce((sum, c) => sum + c.missing, 0);
+        const overallEfficiency =
+          totalExpected > 0 ? Math.round((totalExpectedFound / totalExpected) * 100) : 0;
 
         return {
-          picklist_id: group.picklist_id,
-          employee_id: group.employee_id,
-          employee_name: namesMap[group.employee_id] || '',
-          channel: group.channel,
-          createdAt: group.createdAt,
-          expected,
-          found,
-          missing: missingItems.length,
-          efficiency,
-          foundItems,
-          missingItems,
+          employee_id: empGroup.employee_id,
+          employee_name: namesMap[empGroup.employee_id] || '',
+          createdAt: empGroup.createdAt,
+          channelCount: channelStats.length,
+          picklistCount: empGroup.picklistIds.size,
+          totalOrders,
+          totalExpected,
+          totalExpectedFound,
+          totalOtherFound,
+          totalFoundAll,
+          totalMissing,
+          overallEfficiency,
+          channels: channelStats,
         };
       })
       .sort((a, b) => {
-        // coerce to numbers if possible (employee_id is often a numeric string)
         const idA = Number(a.employee_id);
         const idB = Number(b.employee_id);
-
-        if (!isNaN(idA) && !isNaN(idB)) {
-          return idA - idB; // numeric ascending
-        }
-        // fallback: string compare (handles "unknown" / null / mixed)
+        if (!isNaN(idA) && !isNaN(idB)) return idA - idB;
         return String(a.employee_id ?? '').localeCompare(String(b.employee_id ?? ''));
       });
   }, [records, namesMap]);
 
-  /* ---------- PDF Export (single picklist) ---------- */
-  const exportPicklistPDF = (data) => {
+  /* ---------- PDF Export (single employee, all channels) ---------- */
+  const exportEmployeePDF = (data) => {
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'pt',
@@ -109,21 +499,25 @@ const Stats = ({ records = [], namesMap = {} }) => {
       ? `Employee: ${data.employee_id ?? '—'} (${data.employee_name})`
       : `Employee ID: ${data.employee_id ?? '—'}`;
 
-    doc.text(`Channel: ${data.channel ?? '—'}`, 40, metaY);
-    doc.text(`Picklist ID: #${data.picklist_id}`, 40, metaY + 16);
-    doc.text(employeeLine, 40, metaY + 32);
-    doc.text(`Picklist Time: ${formatDateTime(data.createdAt)}`, 40, metaY + 48);
+    doc.text(employeeLine, 40, metaY);
+    doc.text(`Channels: ${data.channelCount}   Picklists: ${data.picklistCount}`, 40, metaY + 16);
+    doc.text(`Earliest Picklist Time: ${formatDateTime(data.createdAt)}`, 40, metaY + 32);
     doc.text(
-      `Expected: ${data.expected}   Found: ${data.found}   Missing: ${data.missing}   Efficiency: ${data.efficiency}%`,
+      `Total Orders: ${data.totalOrders}   Expected Found: ${data.totalExpectedFound}   Other Found: ${data.totalOtherFound}   Total Found: ${data.totalFoundAll}   Missing: ${data.totalMissing}   Efficiency: ${data.overallEfficiency}%`,
       40,
-      metaY + 64
+      metaY + 48
+    );
+
+    const allMissing = data.channels.flatMap((ch) =>
+      ch.missingItems.map((item) => ({ ...item, __channel: ch.channel }))
     );
 
     autoTable(doc, {
-      startY: metaY + 80,
-      head: [['#', 'Style Number', 'Size', 'Rack Space']],
-      body: data.missingItems.map((item, idx) => [
+      startY: metaY + 68,
+      head: [['#', 'Channel', 'Style Number', 'Size', 'Rack Space']],
+      body: allMissing.map((item, idx) => [
         idx + 1,
+        item.__channel ?? '—',
         item.style_number ?? '—',
         item.size ?? '—',
         item.rackSpace?.replace(/['"`]/g, '') ?? '—',
@@ -147,10 +541,10 @@ const Stats = ({ records = [], namesMap = {} }) => {
       },
     });
 
-    doc.save(`Missing_Picklist_${data.picklist_id}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`Missing_Employee_${data.employee_id}_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
-  if (!picklistStats.length) {
+  if (!employeeStats.length) {
     return (
       <div className="w-full my-4 sm:my-6 p-6 sm:p-8 text-center text-slate-500 bg-white rounded-xl border border-slate-200">
         No records available.
@@ -164,15 +558,15 @@ const Stats = ({ records = [], namesMap = {} }) => {
       <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-4">
         <div>
           <h2 className="text-lg sm:text-xl font-semibold text-slate-900 m-0">
-            Picklist Performance
+            Employee Performance
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            {picklistStats.length} picklist
-            {picklistStats.length > 1 ? 's' : ''} · Grouped by <strong>picklist_id</strong>
+            {employeeStats.length} employee
+            {employeeStats.length > 1 ? 's' : ''} · Grouped by <strong>employee_id</strong>
           </p>
         </div>
         <button
-          onClick={() => exportPicklistPDF(openPicklist || picklistStats[0])}
+          onClick={() => exportEmployeePDF(employeeStats[0])}
           className="inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors w-full sm:w-auto"
         >
           <PdfIcon />
@@ -180,119 +574,186 @@ const Stats = ({ records = [], namesMap = {} }) => {
         </button>
       </div>
 
-      {/* ---------- MOBILE: card list ---------- */}
-      <div className="sm:hidden space-y-3">
-        {picklistStats.map((p) => (
-          <PicklistCard
-            key={p.picklist_id}
-            data={p}
-            onView={() => setOpenPicklist(p)}
-            onExport={() => exportPicklistPDF(p)}
-          />
-        ))}
-      </div>
+      {/* ---------- List: employee cards, expandable to channel breakdown ---------- */}
+      <div>
+        {employeeStats.map((emp) => {
+          const isOpen = expandedEmployee === emp.employee_id;
+          const effText =
+            emp.overallEfficiency >= 80
+              ? 'text-green-600'
+              : emp.overallEfficiency >= 50
+                ? 'text-amber-600'
+                : 'text-red-600';
+          const effBar =
+            emp.overallEfficiency >= 80
+              ? 'bg-green-500'
+              : emp.overallEfficiency >= 50
+                ? 'bg-amber-500'
+                : 'bg-red-500';
 
-      {/* ---------- DESKTOP: table ---------- */}
-      <div className="hidden sm:block overflow-x-auto border border-slate-200 rounded-lg">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr>
-              <Th>Picklist ID</Th>
-              <Th>Employee</Th>
-              <Th>Channel</Th>
-              <Th>Picklist Time</Th>
-              <Th className="text-center">Expected</Th>
-              <Th className="text-center">Found</Th>
-              <Th className="text-center">Missing</Th>
-              <Th>Efficiency</Th>
-              <Th className="text-center">Action</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {picklistStats.map((p, idx) => {
-              const effText =
-                p.efficiency >= 80
-                  ? 'text-green-600'
-                  : p.efficiency >= 50
-                    ? 'text-amber-600'
-                    : 'text-red-600';
-              const effBar =
-                p.efficiency >= 80
-                  ? 'bg-green-500'
-                  : p.efficiency >= 50
-                    ? 'bg-amber-500'
-                    : 'bg-red-500';
-
-              return (
-                <tr key={p.picklist_id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                  <Td className="font-semibold whitespace-nowrap">#{p.picklist_id}</Td>
-                  <Td className="whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-slate-800">
-                        {p.employee_id ?? '—'}
-                      </span>
-                      {p.employee_name ? (
-                        <span className="text-xs text-slate-500">{p.employee_name}</span>
-                      ) : (
-                        <span className="text-xs text-slate-300">loading…</span>
-                      )}
-                    </div>
-                  </Td>
-                  <Td className="whitespace-nowrap">
-                    <span className="inline-block px-2 py-0.5 bg-slate-100 rounded text-xs font-semibold text-slate-700">
-                      {p.channel || '—'}
+          return (
+            <div key={emp.employee_id} className="border-b  border-b-gray-200 overflow-hidden">
+              {/* Employee summary row */}
+              <button
+                type="button"
+                onClick={() => setExpandedEmployee(isOpen ? null : emp.employee_id)}
+                className="w-full flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 bg-white hover:bg-slate-50 transition-colors text-left"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-slate-800">
+                      #{emp.employee_id ?? '—'}
                     </span>
-                  </Td>
-                  <Td className="text-xs text-slate-600 whitespace-nowrap">
-                    {formatDateTime(p.createdAt)}
-                  </Td>
-                  <Td className="text-center font-semibold text-blue-600">{p.expected}</Td>
-                  <Td className="text-center font-semibold text-green-600">{p.found}</Td>
-                  <Td className="text-center font-semibold text-red-600">{p.missing}</Td>
-                  <Td>
-                    <div className="flex items-center gap-2 min-w-[110px]">
+                    {emp.employee_name ? (
+                      <span className="text-xs text-slate-500">{emp.employee_name}</span>
+                    ) : (
+                      <span className="text-xs text-slate-300">loading…</span>
+                    )}
+                    <span className="inline-block px-2 py-0.5 bg-slate-100 rounded text-xs font-semibold text-slate-700">
+                      {emp.channelCount} channel{emp.channelCount > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {formatDateTime(emp.createdAt)} · {emp.picklistCount} picklist
+                    {emp.picklistCount > 1 ? 's' : ''}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-4 sm:gap-6 text-sm">
+                  <div className="text-center">
+                    <div className="font-semibold text-slate-700">{emp.totalOrders}</div>
+                    <div className="text-[10px] uppercase text-slate-400">Total Orders</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-slate-600">{emp.totalExpected}</div>
+                    <div className="text-[10px] uppercase text-slate-400">Total Expected</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-blue-600">{emp.totalExpectedFound}</div>
+                    <div className="text-[10px] uppercase text-slate-400">Expected Found</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-purple-600">{emp.totalOtherFound}</div>
+                    <div className="text-[10px] uppercase text-slate-400">Other Found</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-green-600">{emp.totalFoundAll}</div>
+                    <div className="text-[10px] uppercase text-slate-400">Total Found</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-red-600">{emp.totalMissing}</div>
+                    <div className="text-[10px] uppercase text-slate-400">Missing</div>
+                  </div>
+                  <div className="w-28">
+                    <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full ${effBar}`}
-                          style={{ width: `${p.efficiency}%` }}
+                          style={{ width: `${emp.overallEfficiency}%` }}
                         />
                       </div>
-                      <span className={`text-xs font-bold ${effText}`}>{p.efficiency}%</span>
+                      <span className={`text-xs font-bold ${effText}`}>
+                        {emp.overallEfficiency}%
+                      </span>
                     </div>
-                  </Td>
-                  <Td className="text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => setOpenPicklist(p)}
-                        className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors whitespace-nowrap"
-                      >
-                        View
-                      </button>
-                      <button
-                        onClick={() => exportPicklistPDF(p)}
-                        title="Export missing as PDF"
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md transition-colors whitespace-nowrap"
-                      >
-                        <PdfIcon className="w-3.5 h-3.5" />
-                        PDF
-                      </button>
-                    </div>
-                  </Td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      exportEmployeePDF(emp);
+                    }}
+                    title="Export missing as PDF"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md transition-colors whitespace-nowrap"
+                  >
+                    <PdfIcon className="w-3.5 h-3.5" />
+                    PDF
+                  </button>
+                  <span className="text-slate-400 text-xs">{isOpen ? '▲' : '▼'}</span>
+                </div>
+              </button>
 
-      {/* Modal */}
-      {openPicklist && (
-        <PicklistModal
-          data={openPicklist}
-          onClose={() => setOpenPicklist(null)}
-          onExport={() => exportPicklistPDF(openPicklist)}
-        />
-      )}
+              {/* Channel breakdown */}
+              {isOpen && (
+                <div className="border-t border-slate-200 bg-slate-50 overflow-x-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr>
+                        <Th>Channel</Th>
+                        <Th className="text-center">Total Orders</Th>
+                        <Th className="text-center">Expected</Th>
+                        <Th className="text-center">Expected Found</Th>
+                        <Th className="text-center">Other Found</Th>
+                        <Th className="text-center">Total Found</Th>
+                        <Th className="text-center">Missing</Th>
+                        <Th>Efficiency</Th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {emp.channels.map((ch, idx) => {
+                        const chEffText =
+                          ch.efficiency >= 80
+                            ? 'text-green-600'
+                            : ch.efficiency >= 50
+                              ? 'text-amber-600'
+                              : 'text-red-600';
+                        const chEffBar =
+                          ch.efficiency >= 80
+                            ? 'bg-green-500'
+                            : ch.efficiency >= 50
+                              ? 'bg-amber-500'
+                              : 'bg-red-500';
+
+                        return (
+                          <tr
+                            key={ch.channel ?? idx}
+                            className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}
+                          >
+                            <Td className="whitespace-nowrap">
+                              <span className="inline-block px-2 py-0.5 bg-slate-100 rounded text-xs font-semibold text-slate-700">
+                                {ch.channel || '—'}
+                              </span>
+                            </Td>
+                            <Td className="text-center font-semibold text-slate-700">
+                              {ch.totalOrders}
+                            </Td>
+                            <Td className="text-center font-semibold text-slate-600">
+                              {ch.expected}
+                            </Td>
+                            <Td className="text-center font-semibold text-blue-600">
+                              {ch.expectedFound}
+                            </Td>
+                            <Td className="text-center font-semibold text-purple-600">
+                              {ch.otherFound}
+                            </Td>
+                            <Td className="text-center font-semibold text-green-600">
+                              {ch.totalFound}
+                            </Td>
+                            <Td className="text-center font-semibold text-red-600">{ch.missing}</Td>
+                            <Td>
+                              <div className="flex items-center gap-2 min-w-[110px]">
+                                <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${chEffBar}`}
+                                    style={{ width: `${ch.efficiency}%` }}
+                                  />
+                                </div>
+                                <span className={`text-xs font-bold ${chEffText}`}>
+                                  {ch.efficiency}%
+                                </span>
+                              </div>
+                            </Td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

@@ -1,11 +1,23 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import usePicklistResponse from '../hooks/usePicklistResponse.js';
 import useUserNames from '../hooks/useUserNames.js';
 import DateSelector from '../components/DateSelector.jsx';
 import Stats from '../components/Stats.jsx';
 
 const Dashboard = () => {
-  const { loading, error, picklistResponse, setDate, date } = usePicklistResponse();
+  const [isRange, setIsRange] = useState(false);
+
+  const {
+    loading,
+    error,
+    picklistResponse,
+    date,
+    setDate,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+  } = usePicklistResponse();
 
   const records = picklistResponse?.picklistResponses ?? [];
 
@@ -50,8 +62,41 @@ const Dashboard = () => {
             </h1>
             <p className="text-sm text-slate-500 mt-1">Picklist performance overview</p>
           </div>
-          <div className="w-full sm:w-auto">
-            <DateSelector setDate={setDate} date={date} label="Filter by Date" />
+
+          <div className="w-full sm:w-auto flex flex-col gap-2 items-start sm:items-end">
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-500 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isRange}
+                onChange={(e) => {
+                  setIsRange(e.target.checked);
+                  setDate('');
+                  setStartDate('');
+                  setEndDate('');
+                }}
+                className="rounded border-slate-300"
+              />
+              Date range
+            </label>
+
+            {isRange ? (
+              <div className="flex flex-col sm:flex-row gap-3 w-full">
+                <DateSelector
+                  label="Start Date"
+                  date={startDate}
+                  setDate={setStartDate}
+                  max={endDate || undefined}
+                />
+                <DateSelector
+                  label="End Date"
+                  date={endDate}
+                  setDate={setEndDate}
+                  min={startDate || undefined}
+                />
+              </div>
+            ) : (
+              <DateSelector setDate={setDate} date={date} label="Filter by Date" />
+            )}
           </div>
         </div>
 

@@ -1,6 +1,6 @@
-import React from 'react';
+import { useState } from 'react';
 
-const DateSelector = ({ setDate, date, label = 'Select Date' }) => {
+const DateSelector = ({ setDate, date, label = 'Select Date', min, max }) => {
   return (
     <div className="w-full sm:w-auto">
       {label && (
@@ -10,7 +10,6 @@ const DateSelector = ({ setDate, date, label = 'Select Date' }) => {
       )}
 
       <div className="relative group">
-        {/* Calendar icon */}
         <div className="absolute inset-y-0 left-0 pl-3.5 sm:pl-4 flex items-center pointer-events-none">
           <svg
             className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors"
@@ -31,6 +30,8 @@ const DateSelector = ({ setDate, date, label = 'Select Date' }) => {
         <input
           type="date"
           value={date}
+          min={min}
+          max={max}
           onChange={(e) => setDate(e.target.value)}
           className="
             w-full sm:w-56
@@ -50,7 +51,6 @@ const DateSelector = ({ setDate, date, label = 'Select Date' }) => {
           "
         />
 
-        {/* Clear button — shows when date is set */}
         {date && (
           <button
             type="button"
@@ -82,4 +82,81 @@ const DateSelector = ({ setDate, date, label = 'Select Date' }) => {
   );
 };
 
+// ---- Wrapper: single date + optional range mode ----
+const PicklistDateFilter = ({ onFetch }) => {
+  const [isRange, setIsRange] = useState(false);
+  const [date, setDate] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const handleFetch = () => {
+    if (isRange) {
+      if (!startDate || !endDate) return;
+      onFetch({ startDate, endDate });
+    } else {
+      onFetch(date ? { date } : {});
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <label className="flex items-center gap-2 text-sm font-medium text-slate-600 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isRange}
+            onChange={(e) => {
+              setIsRange(e.target.checked);
+              setDate('');
+              setStartDate('');
+              setEndDate('');
+            }}
+            className="rounded border-slate-300"
+          />
+          Date range
+        </label>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+        {isRange ? (
+          <>
+            <DateSelector
+              label="Start Date"
+              date={startDate}
+              setDate={setStartDate}
+              max={endDate || undefined}
+            />
+            <DateSelector
+              label="End Date"
+              date={endDate}
+              setDate={setEndDate}
+              min={startDate || undefined}
+            />
+          </>
+        ) : (
+          <DateSelector label="Select Date" date={date} setDate={setDate} />
+        )}
+
+        <button
+          type="button"
+          onClick={handleFetch}
+          disabled={isRange && (!startDate || !endDate)}
+          className="
+            px-5 py-2.5 sm:py-3
+            text-sm sm:text-base font-semibold text-white
+            bg-blue-600 hover:bg-blue-700
+            disabled:bg-slate-300 disabled:cursor-not-allowed
+            rounded-xl sm:rounded-2xl
+            shadow-sm
+            transition-colors
+          "
+        >
+          Fetch
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export default DateSelector;
+export { PicklistDateFilter };
